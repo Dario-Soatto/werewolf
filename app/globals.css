@@ -1,26 +1,181 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-blood: #6B1C1C;
+  --color-blood-bright: #8B2525;
+  --color-moonlight: #E8E4D9;
+  --color-parchment: #D4C9B0;
+  --color-night: #0D0D0F;
+  --color-night-lighter: #161619;
+  --color-fog: #2A2A30;
+  --color-werewolf: #7C2D2D;
+  --color-village: #2D4A5E;
+  --color-tanner: #5E4A2D;
+  --color-seer: #3D2D5E;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-night);
+  color: var(--color-moonlight);
+  font-family: 'Crimson Pro', Georgia, serif;
+}
+
+/* Noise texture overlay */
+.noise-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.03;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+}
+
+/* Moon glow effect */
+.moon-glow {
+  position: fixed;
+  top: -20%;
+  right: -10%;
+  width: 60%;
+  height: 60%;
+  background: radial-gradient(circle, rgba(232, 228, 217, 0.03) 0%, transparent 60%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Card styling */
+.game-card {
+  background: linear-gradient(145deg, var(--color-night-lighter) 0%, var(--color-night) 100%);
+  border: 1px solid rgba(232, 228, 217, 0.08);
+  position: relative;
+  overflow: hidden;
+}
+
+.game-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(232, 228, 217, 0.02) 0%, transparent 50%);
+  pointer-events: none;
+}
+
+/* Player card */
+.player-card {
+  background: linear-gradient(145deg, var(--color-fog) 0%, var(--color-night-lighter) 100%);
+  border: 1px solid rgba(232, 228, 217, 0.1);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.player-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+/* Role colors */
+.role-werewolf { border-color: var(--color-werewolf); background: linear-gradient(145deg, rgba(124, 45, 45, 0.2) 0%, transparent 100%); }
+.role-seer { border-color: var(--color-seer); background: linear-gradient(145deg, rgba(61, 45, 94, 0.2) 0%, transparent 100%); }
+.role-robber { border-color: #4A5E2D; background: linear-gradient(145deg, rgba(74, 94, 45, 0.2) 0%, transparent 100%); }
+.role-troublemaker { border-color: #5E2D5A; background: linear-gradient(145deg, rgba(94, 45, 90, 0.2) 0%, transparent 100%); }
+.role-tanner { border-color: var(--color-tanner); background: linear-gradient(145deg, rgba(94, 74, 45, 0.2) 0%, transparent 100%); }
+.role-villager { border-color: var(--color-village); background: linear-gradient(145deg, rgba(45, 74, 94, 0.2) 0%, transparent 100%); }
+.role-insomniac { border-color: #2D5E5A; background: linear-gradient(145deg, rgba(45, 94, 90, 0.2) 0%, transparent 100%); }
+
+/* Phase divider */
+.phase-divider {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin: 2rem 0;
+}
+
+.phase-divider::before,
+.phase-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(232, 228, 217, 0.2), transparent);
+}
+
+/* Thought bubble for reasoning */
+.thought-bubble {
+  background: rgba(232, 228, 217, 0.03);
+  border-left: 2px solid rgba(232, 228, 217, 0.1);
+  font-style: italic;
+}
+
+/* Button styling */
+.btn-primary {
+  background: linear-gradient(145deg, var(--color-blood-bright) 0%, var(--color-blood) 100%);
+  border: 1px solid rgba(139, 37, 37, 0.5);
+  color: var(--color-moonlight);
+  font-family: 'Crimson Pro', Georgia, serif;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  transition: all 0.2s ease;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: linear-gradient(145deg, #9B3535 0%, var(--color-blood-bright) 100%);
+  box-shadow: 0 4px 20px rgba(107, 28, 28, 0.4);
+  transform: translateY(-1px);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: transparent;
+  border: 1px solid rgba(232, 228, 217, 0.2);
+  color: var(--color-moonlight);
+  font-family: 'Crimson Pro', Georgia, serif;
+  transition: all 0.2s ease;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: rgba(232, 228, 217, 0.05);
+  border-color: rgba(232, 228, 217, 0.3);
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-in {
+  animation: fadeIn 0.4s ease forwards;
+}
+
+@keyframes pulse-slow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.pulse-slow {
+  animation: pulse-slow 2s ease-in-out infinite;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-night);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-fog);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(232, 228, 217, 0.2);
+}
+
+/* Code/technical sections */
+.font-mono {
+  font-family: 'JetBrains Mono', monospace;
 }

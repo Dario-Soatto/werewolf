@@ -257,7 +257,7 @@ export async function executeStep(gameId: string, session: GameSession): Promise
       const response = await queryLLMStructured<{ vote: string }>(
         systemPrompt,
         userPrompt,
-        schema
+        schema as Record<string, unknown>
       );
       
       const target = getPlayerByName(state, response.vote);
@@ -367,7 +367,7 @@ async function executeNightActionForPlayer(
         action: 'look_at_player' | 'look_at_center';
         target_player: string | null;
         center_cards: ('left' | 'middle' | 'right')[] | null;
-      }>(systemPrompt, promptData.prompt, promptData.schema);
+      }>(systemPrompt, promptData.prompt, promptData.schema as Record<string, unknown>);
 
       let result: { state: GameState; result: string } | null = null;
 
@@ -403,7 +403,7 @@ async function executeNightActionForPlayer(
       const response = await queryLLMStructured<{ target_player: string }>(
         systemPrompt,
         promptData.prompt,
-        promptData.schema
+        promptData.schema as Record<string, unknown>
       );
 
       const target = getPlayerByName(state, response.target_player);
@@ -428,7 +428,7 @@ async function executeNightActionForPlayer(
       const response = await queryLLMStructured<{ player1: string; player2: string }>(
         systemPrompt,
         promptData.prompt,
-        promptData.schema
+        promptData.schema as Record<string, unknown>
       );
 
       const target1 = getPlayerByName(state, response.player1);

@@ -13,6 +13,16 @@ interface PlayerInfo {
   currentRole: string;
 }
 
+const ROLE_SYMBOLS: Record<string, string> = {
+  werewolf: '🐺',
+  seer: '👁',
+  robber: '🗡',
+  troublemaker: '🔀',
+  tanner: '💀',
+  villager: '🏠',
+  insomniac: '🦉',
+};
+
 export default function Home() {
   const [gameId, setGameId] = useState<string | null>(null);
   const [events, setEvents] = useState<GameEvent[]>([]);
@@ -32,12 +42,10 @@ export default function Home() {
     try {
       const response = await fetch('/api/game/start', { method: 'POST' });
       const data = await response.json();
-
       if (data.error) {
         console.error('Failed to start game:', data.error);
         return;
       }
-
       setGameId(data.gameId);
       setTotalSteps(data.totalSteps);
       setNextStepDescription(data.nextStepDescription);
@@ -51,7 +59,6 @@ export default function Home() {
 
   const executeNextStep = useCallback(async () => {
     if (!gameId || isLoading) return;
-
     setIsLoading(true);
 
     try {
@@ -61,12 +68,10 @@ export default function Home() {
         body: JSON.stringify({ gameId }),
       });
       const data = await response.json();
-
       if (data.error) {
         console.error('Step error:', data.error);
         return;
       }
-
       setEvents((prev) => [...prev, data.event]);
       setCompleted(data.completed);
       setNextStepDescription(data.nextStepDescription);
@@ -82,238 +87,243 @@ export default function Home() {
   const gameResult = events.find((e) => e.type === 'game_end')?.data as {
     winners: string[];
     finalRoles: PlayerInfo[];
+    centerCards: { left: string; middle: string; right: string };
+  } | undefined;
+
+  const setupEvent = events.find((e) => e.type === 'setup')?.data as {
+    players: { name: string; originalRole: string }[];
+    centerCards: { left: string; middle: string; right: string };
   } | undefined;
 
   return (
-    <main className="min-h-screen bg-gray-950 text-gray-100 p-8">
-      <div className="max-w-5xl mx-auto">
-        <h1 className="text-4xl font-bold text-center mb-2 text-amber-500">
-          🐺 One Night Ultimate Werewolf
-        </h1>
-        <p className="text-center text-gray-400 mb-8">LLMs playing against each other • Powered by GPT-5</p>
+    <>
+      <div className="noise-bg" />
+      <div className="moon-glow" />
+      
+      <main className="relative z-10 min-h-screen px-6 py-12">
+        <div className="max-w-4xl mx-auto">
+          {/* Header */}
+          <header className="text-center mb-12">
+            <div className="inline-block mb-4">
+              <div className="text-6xl mb-2 opacity-80">🌙</div>
+            </div>
+            <h1 className="text-4xl md:text-5xl font-bold tracking-wide mb-2">
+              One Night
+            </h1>
+            <p className="text-2xl md:text-3xl text-[var(--color-parchment)] opacity-70 tracking-widest uppercase">
+              Ultimate Werewolf
+            </p>
+            <p className="mt-4 text-sm opacity-40 tracking-wider">
+              Five strangers. One night. Who will survive?
+            </p>
+          </header>
 
-        <div className="flex flex-col items-center gap-4 mb-8">
-          <div className="flex gap-4">
-            <button
-              onClick={startGame}
-              disabled={isLoading}
-              className="px-8 py-3 bg-amber-600 hover:bg-amber-500 disabled:bg-gray-700 disabled:cursor-not-allowed rounded-lg font-semibold text-lg transition-colors"
-            >
-              {gameId ? '🔄 New Game' : '▶️ Start Game'}
-            </button>
-
-            {gameId && !completed && (
+          {/* Controls */}
+          <div className="flex flex-col items-center gap-6 mb-12">
+            <div className="flex gap-4">
               <button
-                onClick={executeNextStep}
+                onClick={startGame}
                 disabled={isLoading}
-                className="px-8 py-3 bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-800 disabled:cursor-wait rounded-lg font-semibold text-lg transition-colors flex items-center gap-2"
+                className="btn-primary px-8 py-3 rounded text-lg"
               >
-                {isLoading ? (
-                  <>
-                    <span className="animate-spin">⏳</span> Running...
-                  </>
-                ) : (
-                  <>Next Step →</>
-                )}
+                {gameId ? 'New Game' : 'Begin'}
               </button>
+
+              {gameId && !completed && (
+                <button
+                  onClick={executeNextStep}
+                  disabled={isLoading}
+                  className="btn-secondary px-8 py-3 rounded text-lg flex items-center gap-3"
+                >
+                  {isLoading ? (
+                    <span className="pulse-slow">Thinking...</span>
+                  ) : (
+                    <>Continue<span className="opacity-50">→</span></>
+                  )}
+                </button>
+              )}
+            </div>
+
+            {gameId && (
+              <div className="text-sm opacity-50 font-mono">
+                {currentStep}/{totalSteps}
+                {nextStepDescription && !completed && (
+                  <span className="ml-3 opacity-70">· {nextStepDescription}</span>
+                )}
+                {completed && (
+                  <span className="ml-3 text-[var(--color-parchment)]">· The night is over</span>
+                )}
+              </div>
             )}
           </div>
 
-          {gameId && (
-            <div className="text-sm text-gray-400">
-              Step {currentStep} of {totalSteps}
-              {nextStepDescription && !completed && (
-                <span className="ml-2 text-amber-400">• Next: {nextStepDescription}</span>
-              )}
-              {completed && <span className="ml-2 text-emerald-400">• Game Complete!</span>}
+          {/* Players Row */}
+          {setupEvent && (
+            <div className="mb-12 animate-in">
+              <div className="grid grid-cols-5 gap-3">
+                {setupEvent.players.map((p, i) => (
+                  <div
+                    key={p.name}
+                    className={`player-card role-${p.originalRole} p-4 rounded text-center`}
+                    style={{ animationDelay: `${i * 100}ms` }}
+                  >
+                    <div className="text-2xl mb-2">{ROLE_SYMBOLS[p.originalRole]}</div>
+                    <p className="font-semibold text-lg">{p.name}</p>
+                    <p className="text-xs opacity-50 uppercase tracking-wider mt-1">
+                      {p.originalRole}
+                    </p>
+                  </div>
+                ))}
+              </div>
+              <p className="text-center mt-4 text-sm opacity-40">
+                Center: {setupEvent.centerCards.left} · {setupEvent.centerCards.middle} · {setupEvent.centerCards.right}
+              </p>
             </div>
           )}
-        </div>
 
-        {gameResult && completed && (
-          <div className="mb-8 p-6 bg-gray-900 rounded-xl border border-amber-500/30">
-            <h2 className="text-2xl font-bold text-center mb-4">
-              {gameResult.winners.includes('village') && '🏆 Village Wins!'}
-              {gameResult.winners.includes('werewolf') && '🐺 Werewolves Win!'}
-              {gameResult.winners.includes('tanner') && '💀 Tanner Wins!'}
-            </h2>
-            <div className="grid grid-cols-5 gap-4">
-              {gameResult.finalRoles.map((player) => (
-                <div
-                  key={player.name}
-                  className={`p-3 rounded-lg text-center ${
-                    player.currentRole === 'werewolf'
-                      ? 'bg-red-900/50 border border-red-500/50'
-                      : player.currentRole === 'tanner'
-                      ? 'bg-yellow-900/50 border border-yellow-500/50'
-                      : 'bg-green-900/50 border border-green-500/50'
-                  }`}
-                >
-                  <p className="font-semibold">{player.name}</p>
-                  <p className="text-sm text-gray-400">{player.originalRole}</p>
-                  {player.originalRole !== player.currentRole && (
-                    <p className="text-xs text-amber-400">→ {player.currentRole}</p>
-                  )}
+          {/* Winner Banner */}
+          {gameResult && completed && (
+            <div className="mb-12 animate-in">
+              <div className={`game-card p-8 rounded-lg text-center ${
+                gameResult.winners.includes('werewolf') ? 'role-werewolf' :
+                gameResult.winners.includes('tanner') ? 'role-tanner' : 'role-villager'
+              }`}>
+                <p className="text-sm uppercase tracking-widest opacity-50 mb-2">The sun rises...</p>
+                <h2 className="text-3xl font-bold mb-4">
+                  {gameResult.winners.includes('village') && 'The Village Survives'}
+                  {gameResult.winners.includes('werewolf') && 'The Wolves Feast Tonight'}
+                  {gameResult.winners.includes('tanner') && 'The Tanner Finds Peace'}
+                </h2>
+                <div className="grid grid-cols-5 gap-3 mt-6">
+                  {gameResult.finalRoles.map((player) => (
+                    <div key={player.name} className="text-center">
+                      <div className="text-xl mb-1">{ROLE_SYMBOLS[player.currentRole]}</div>
+                      <p className="font-semibold">{player.name}</p>
+                      <p className="text-xs opacity-50">{player.currentRole}</p>
+                      {player.originalRole !== player.currentRole && (
+                        <p className="text-xs text-[var(--color-blood-bright)]">
+                          was {player.originalRole}
+                        </p>
+                      )}
+                    </div>
+                  ))}
                 </div>
-              ))}
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        <div className="space-y-3">
-          {events.map((event, i) => (
-            <EventCard key={i} event={event} />
-          ))}
+          {/* Event Log */}
+          <div className="space-y-4">
+            {events.filter(e => e.type !== 'setup' && e.type !== 'game_end').map((event, i) => (
+              <EventCard key={i} event={event} index={i} />
+            ))}
+          </div>
         </div>
-      </div>
-    </main>
+      </main>
+    </>
   );
 }
 
-function EventCard({ event }: { event: GameEvent }) {
-  const [showPrompts, setShowPrompts] = useState(false);
-  const [showReasoning, setShowReasoning] = useState(true); // Show reasoning by default
+function EventCard({ event, index }: { event: GameEvent; index: number }) {
+  const [showDetails, setShowDetails] = useState(false);
   const data = event.data;
 
-  const hasPrompts = Boolean(data.systemPrompt || data.userPrompt);
-  const hasReasoning = Boolean(data.reasoning || data.modelReasoning);
-
-  // Reasoning section - GPT-5's chain-of-thought summary
-  const reasoningSection = hasReasoning && showReasoning && (
-    <div className="mt-3 p-3 bg-gradient-to-r from-cyan-900/30 to-blue-900/30 rounded border border-cyan-700/50">
-      <p className="text-cyan-400 font-semibold text-sm mb-2">🧠 Model Reasoning (GPT-5 Chain-of-Thought)</p>
-      <p className="text-cyan-200 text-sm whitespace-pre-wrap">
-        {String(data.reasoning || data.modelReasoning)}
-      </p>
-    </div>
-  );
-
-  const promptsSection = hasPrompts && showPrompts && (
-    <div className="mt-3 space-y-2 text-xs">
-      {Boolean(data.systemPrompt) && (
-        <div className="bg-black/30 p-3 rounded border border-gray-700 max-h-64 overflow-auto">
-          <p className="text-gray-500 font-semibold mb-1">System Prompt:</p>
-          <pre className="text-gray-400 whitespace-pre-wrap font-mono">{String(data.systemPrompt)}</pre>
-        </div>
-      )}
-      {Boolean(data.userPrompt) && (
-        <div className="bg-black/30 p-3 rounded border border-gray-700 max-h-64 overflow-auto">
-          <p className="text-gray-500 font-semibold mb-1">User Prompt:</p>
-          <pre className="text-gray-400 whitespace-pre-wrap font-mono">{String(data.userPrompt)}</pre>
-        </div>
-      )}
-      {Boolean(data.llmResponse) && (
-        <div className="bg-black/30 p-3 rounded border border-emerald-900">
-          <p className="text-emerald-600 font-semibold mb-1">LLM Response:</p>
-          <pre className="text-emerald-400 whitespace-pre-wrap font-mono">{String(data.llmResponse)}</pre>
-        </div>
-      )}
-    </div>
-  );
-
-  const controlButtons = (hasPrompts || hasReasoning) && (
-    <div className="flex gap-2">
-      {hasReasoning && (
-        <button
-          onClick={() => setShowReasoning(!showReasoning)}
-          className="text-xs px-2 py-1 bg-cyan-800/50 hover:bg-cyan-700/50 rounded text-cyan-300"
-        >
-          {showReasoning ? '🧠 Hide Reasoning' : '🧠 Show Reasoning'}
-        </button>
-      )}
-      {hasPrompts && (
-        <button
-          onClick={() => setShowPrompts(!showPrompts)}
-          className="text-xs px-2 py-1 bg-gray-700/50 hover:bg-gray-600/50 rounded text-gray-300"
-        >
-          {showPrompts ? 'Hide Prompts' : 'Show Prompts'}
-        </button>
-      )}
-    </div>
-  );
+  const hasDetails = Boolean(data.systemPrompt || data.userPrompt || data.reasoning);
 
   switch (event.type) {
-    case 'setup':
+    case 'phase_change': {
+      const phase = String(data.phase);
+      const round = data.round as number | undefined;
       return (
-        <div className="p-4 bg-gray-800/50 rounded-lg border-l-4 border-gray-500">
-          <span className="text-gray-300 font-semibold">🎴 Game Setup</span>
-          <div className="mt-2 grid grid-cols-5 gap-2 text-sm">
-            {(data.players as { name: string; originalRole: string }[]).map((p) => (
-              <div key={p.name} className="bg-gray-900/50 p-2 rounded text-center">
-                <p className="font-semibold">{p.name}</p>
-                <p className="text-gray-500">{p.originalRole}</p>
-              </div>
-            ))}
-          </div>
-          <p className="text-gray-500 text-sm mt-2">
-            Center: {(data.centerCards as { left: string; middle: string; right: string }).left},{' '}
-            {(data.centerCards as { left: string; middle: string; right: string }).middle},{' '}
-            {(data.centerCards as { left: string; middle: string; right: string }).right}
-          </p>
-        </div>
-      );
-
-    case 'phase_change':
-      return (
-        <div className="p-3 bg-indigo-900/30 rounded-lg border-l-4 border-indigo-500">
-          <span className="text-indigo-300 font-semibold">
-            📍 Phase: {String(data.phase).toUpperCase()}
-            {Boolean(data.round) && ` (Round ${data.round})`}
+        <div className="phase-divider animate-in" style={{ animationDelay: `${index * 50}ms` }}>
+          <span className="text-sm uppercase tracking-widest opacity-50">
+            {phase === 'night' && '🌙 Night Falls'}
+            {phase === 'day' && round && `☀ Day · Discussion ${round}`}
+            {phase === 'day' && !round && '☀ Dawn Breaks'}
+            {phase === 'voting' && '⚖ Time to Vote'}
           </span>
         </div>
       );
+    }
 
     case 'night_action':
       return (
-        <div className="p-4 bg-purple-900/30 rounded-lg border-l-4 border-purple-500">
-          <div className="flex items-center justify-between">
-            <div>
-              <span className="text-purple-300">🌙</span>{' '}
-              <span className="font-semibold text-purple-200">{String(data.player)}</span>
-              <span className="text-gray-400"> ({String(data.role)})</span>
+        <div 
+          className="game-card p-5 rounded-lg animate-in" 
+          style={{ animationDelay: `${index * 50}ms` }}
+        >
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-xl">{ROLE_SYMBOLS[String(data.role)] || '?'}</span>
+                <span className="font-semibold text-lg">{String(data.player)}</span>
+                <span className="text-sm opacity-40">awakens</span>
+              </div>
+              <p className="opacity-80 leading-relaxed">{String(data.result)}</p>
             </div>
-            {controlButtons}
+            {hasDetails && (
+              <button
+                onClick={() => setShowDetails(!showDetails)}
+                className="text-xs opacity-40 hover:opacity-70 transition-opacity"
+              >
+                {showDetails ? 'hide' : 'details'}
+              </button>
+            )}
           </div>
-          <p className="text-gray-300 mt-2">{String(data.result)}</p>
-          {reasoningSection}
-          {promptsSection}
+          {showDetails && <DetailsPanel data={data} />}
         </div>
       );
 
     case 'day_message':
       return (
-        <div className="p-4 bg-amber-900/20 rounded-lg border-l-4 border-amber-500">
-          <div className="flex items-center justify-between">
-            <div>
-              <span className="text-amber-300">💬</span>{' '}
-              <span className="font-semibold text-amber-200">{String(data.player)}</span>
-              {Boolean(data.round) && (
-                <span className="text-gray-500 text-sm"> (Round {String(data.round)})</span>
-              )}
+        <div 
+          className="game-card p-5 rounded-lg animate-in" 
+          style={{ animationDelay: `${index * 50}ms` }}
+        >
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1">
+              <p className="font-semibold mb-2">{String(data.player)}</p>
+              <blockquote className="text-lg leading-relaxed opacity-90 border-l-2 border-[var(--color-parchment)]/20 pl-4">
+                &ldquo;{String(data.message)}&rdquo;
+              </blockquote>
             </div>
-            {controlButtons}
+            {hasDetails && (
+              <button
+                onClick={() => setShowDetails(!showDetails)}
+                className="text-xs opacity-40 hover:opacity-70 transition-opacity"
+              >
+                {showDetails ? 'hide' : 'details'}
+              </button>
+            )}
           </div>
-          <p className="text-gray-200 mt-2 italic">&quot;{String(data.message)}&quot;</p>
-          {reasoningSection}
-          {promptsSection}
+          {showDetails && <DetailsPanel data={data} />}
         </div>
       );
 
     case 'vote':
       return (
-        <div className="p-4 bg-red-900/20 rounded-lg border-l-4 border-red-500">
-          <div className="flex items-center justify-between">
-            <div>
-              <span className="text-red-300">🗳️</span>{' '}
-              <span className="font-semibold text-red-200">{String(data.voter)}</span>
-              <span className="text-gray-400"> votes for </span>
-              <span className="font-semibold text-red-200">{String(data.target)}</span>
+        <div 
+          className="game-card p-5 rounded-lg animate-in border-l-2 border-[var(--color-blood)]" 
+          style={{ animationDelay: `${index * 50}ms` }}
+        >
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1">
+              <p className="opacity-80">
+                <span className="font-semibold">{String(data.voter)}</span>
+                <span className="opacity-50 mx-2">votes to eliminate</span>
+                <span className="font-semibold text-[var(--color-blood-bright)]">{String(data.target)}</span>
+              </p>
             </div>
-            {controlButtons}
+            {hasDetails && (
+              <button
+                onClick={() => setShowDetails(!showDetails)}
+                className="text-xs opacity-40 hover:opacity-70 transition-opacity"
+              >
+                {showDetails ? 'hide' : 'details'}
+              </button>
+            )}
           </div>
-          <p className="text-gray-500 mt-2 text-sm italic">Stated reason: {String(data.reasoning)}</p>
-          {reasoningSection}
-          {promptsSection}
+          {showDetails && <DetailsPanel data={data} />}
         </div>
       );
 
@@ -321,41 +331,91 @@ function EventCard({ event }: { event: GameEvent }) {
       const eliminated = data.eliminated as string;
       const votes = data.votes as { voter: string; target: string }[];
       return (
-        <div className="p-4 bg-orange-900/20 rounded-lg border-l-4 border-orange-500">
-          <span className="text-orange-300 font-semibold">⚖️ Vote Resolution</span>
-          <div className="mt-2 text-sm text-gray-400">
+        <div 
+          className="game-card p-6 rounded-lg animate-in" 
+          style={{ animationDelay: `${index * 50}ms` }}
+        >
+          <p className="text-sm uppercase tracking-widest opacity-50 mb-4">The village decides...</p>
+          
+          <div className="flex flex-wrap gap-2 mb-4 text-sm opacity-60">
             {votes.map((v, i) => (
-              <span key={i}>
-                {v.voter} → {v.target}
-                {i < votes.length - 1 && ', '}
+              <span key={i} className="font-mono">
+                {v.voter}→{v.target}
+                {i < votes.length - 1 && <span className="mx-2 opacity-30">·</span>}
               </span>
             ))}
           </div>
-          <p className="mt-2 text-lg">
-            {eliminated === 'No one' ? (
-              <span className="text-gray-300">No one was eliminated (tie or no majority)</span>
-            ) : (
-              <>
-                <span className="text-red-400 font-bold">{eliminated}</span>
-                <span className="text-gray-300"> was eliminated!</span>
-                {data.eliminatedRole && (
-                  <span className="text-gray-400"> (was {String(data.eliminatedRole)})</span>
-                )}
-              </>
-            )}
-          </p>
+
+          {eliminated === 'No one' ? (
+            <p className="text-xl">The village cannot agree. No one is eliminated.</p>
+          ) : (
+            <p className="text-xl">
+              <span className="font-bold text-[var(--color-blood-bright)]">{eliminated}</span>
+              <span className="opacity-70"> is dragged to the gallows</span>
+              {Boolean(data.eliminatedRole) && (
+                <span className="opacity-50"> — revealed as {String(data.eliminatedRole)}</span>
+              )}
+            </p>
+          )}
         </div>
       );
     }
 
-    case 'game_end':
-      return (
-        <div className="p-3 bg-emerald-900/30 rounded-lg border-l-4 border-emerald-500">
-          <span className="text-emerald-300 font-semibold">🏁 Game Complete!</span>
-        </div>
-      );
-
     default:
       return null;
   }
+}
+
+function DetailsPanel({ data }: { data: Record<string, unknown> }) {
+  const [showPrompts, setShowPrompts] = useState(false);
+  
+  const reasoning = data.reasoning as string | undefined;
+  const systemPrompt = data.systemPrompt as string | undefined;
+  const userPrompt = data.userPrompt as string | undefined;
+  const llmResponse = data.llmResponse as string | undefined;
+
+  return (
+    <div className="mt-4 pt-4 border-t border-white/5 space-y-3">
+      {reasoning && (
+        <div className="thought-bubble p-4 rounded text-sm opacity-70">
+          <p className="text-xs uppercase tracking-wider opacity-50 mb-2">Internal reasoning</p>
+          <p className="leading-relaxed whitespace-pre-wrap">{reasoning}</p>
+        </div>
+      )}
+
+      {(systemPrompt || userPrompt) && (
+        <div>
+          <button
+            onClick={() => setShowPrompts(!showPrompts)}
+            className="text-xs font-mono opacity-40 hover:opacity-70 transition-opacity"
+          >
+            {showPrompts ? '− hide prompts' : '+ show prompts'}
+          </button>
+          
+          {showPrompts && (
+            <div className="mt-3 space-y-3 text-xs font-mono">
+              {Boolean(data.systemPrompt) && (
+                <div className="bg-black/20 p-3 rounded max-h-48 overflow-auto">
+                  <p className="opacity-40 mb-1">system:</p>
+                  <pre className="opacity-60 whitespace-pre-wrap">{String(data.systemPrompt)}</pre>
+                </div>
+              )}
+              {Boolean(data.userPrompt) && (
+                <div className="bg-black/20 p-3 rounded max-h-48 overflow-auto">
+                  <p className="opacity-40 mb-1">user:</p>
+                  <pre className="opacity-60 whitespace-pre-wrap">{String(data.userPrompt)}</pre>
+                </div>
+              )}
+              {Boolean(data.llmResponse) && (
+                <div className="bg-black/20 p-3 rounded max-h-48 overflow-auto border-l border-green-900/50">
+                  <p className="opacity-40 mb-1">response:</p>
+                  <pre className="opacity-80 whitespace-pre-wrap text-green-200/70">{String(data.llmResponse)}</pre>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
