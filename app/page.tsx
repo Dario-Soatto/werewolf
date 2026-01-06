@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
+import { GameSession } from '@/lib/game/store';
 
 interface GameEvent {
   type: string;
@@ -24,65 +25,68 @@ const ROLE_SYMBOLS: Record<string, string> = {
 };
 
 export default function Home() {
-  const [gameId, setGameId] = useState<string | null>(null);
+  const [session, setSession] = useState<GameSession | null>(null);
   const [events, setEvents] = useState<GameEvent[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [nextStepDescription, setNextStepDescription] = useState<string | null>(null);
-  const [completed, setCompleted] = useState(false);
-  const [currentStep, setCurrentStep] = useState(0);
-  const [totalSteps, setTotalSteps] = useState(0);
+  const [error, setError] = useState<string | null>(null);
 
   const startGame = useCallback(async () => {
     setEvents([]);
-    setGameId(null);
-    setCompleted(false);
+    setSession(null);
     setNextStepDescription(null);
+    setError(null);
     setIsLoading(true);
 
     try {
       const response = await fetch('/api/game/start', { method: 'POST' });
       const data = await response.json();
       if (data.error) {
+        setError(data.error);
         console.error('Failed to start game:', data.error);
         return;
       }
-      setGameId(data.gameId);
-      setTotalSteps(data.totalSteps);
+      setSession(data.session);
       setNextStepDescription(data.nextStepDescription);
-      setCurrentStep(0);
-    } catch (error) {
-      console.error('Failed to start game:', error);
+    } catch (err) {
+      setError(String(err));
+      console.error('Failed to start game:', err);
     } finally {
       setIsLoading(false);
     }
   }, []);
 
   const executeNextStep = useCallback(async () => {
-    if (!gameId || isLoading) return;
+    if (!session || isLoading) return;
     setIsLoading(true);
+    setError(null);
 
     try {
       const response = await fetch('/api/game/step', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ gameId }),
+        body: JSON.stringify({ session }),
       });
       const data = await response.json();
       if (data.error) {
+        setError(data.error);
         console.error('Step error:', data.error);
         return;
       }
+      setSession(data.session);
       setEvents((prev) => [...prev, data.event]);
-      setCompleted(data.completed);
       setNextStepDescription(data.nextStepDescription);
-      setCurrentStep(data.currentStep);
-      setTotalSteps(data.totalSteps);
-    } catch (error) {
-      console.error('Step error:', error);
+    } catch (err) {
+      setError(String(err));
+      console.error('Step error:', err);
     } finally {
       setIsLoading(false);
     }
-  }, [gameId, isLoading]);
+  }, [session, isLoading]);
+
+  const completed = session?.completed ?? false;
+  const currentStep = session?.stepIndex ?? 0;
+  const totalSteps = session?.steps.length ?? 0;
 
   const gameResult = events.find((e) => e.type === 'game_end')?.data as {
     winners: string[];
@@ -118,6 +122,13 @@ export default function Home() {
             </p>
           </header>
 
+          {/* Error display */}
+          {error && (
+            <div className="mb-8 p-4 bg-red-900/30 border border-red-500/50 rounded-lg text-center">
+              <p className="text-red-300">{error}</p>
+            </div>
+          )}
+
           {/* Controls */}
           <div className="flex flex-col items-center gap-6 mb-12">
             <div className="flex gap-4">
@@ -126,10 +137,10 @@ export default function Home() {
                 disabled={isLoading}
                 className="btn-primary px-8 py-3 rounded text-lg"
               >
-                {gameId ? 'New Game' : 'Begin'}
+                {session ? 'New Game' : 'Begin'}
               </button>
 
-              {gameId && !completed && (
+              {session && !completed && (
                 <button
                   onClick={executeNextStep}
                   disabled={isLoading}
@@ -144,7 +155,7 @@ export default function Home() {
               )}
             </div>
 
-            {gameId && (
+            {session && (
               <div className="text-sm opacity-50 font-mono">
                 {currentStep}/{totalSteps}
                 {nextStepDescription && !completed && (
@@ -372,7 +383,6 @@ function DetailsPanel({ data }: { data: Record<string, unknown> }) {
   const reasoning = data.reasoning as string | undefined;
   const systemPrompt = data.systemPrompt as string | undefined;
   const userPrompt = data.userPrompt as string | undefined;
-  const llmResponse = data.llmResponse as string | undefined;
 
   return (
     <div className="mt-4 pt-4 border-t border-white/5 space-y-3">
@@ -394,16 +404,16 @@ function DetailsPanel({ data }: { data: Record<string, unknown> }) {
           
           {showPrompts && (
             <div className="mt-3 space-y-3 text-xs font-mono">
-              {Boolean(data.systemPrompt) && (
+              {systemPrompt && (
                 <div className="bg-black/20 p-3 rounded max-h-48 overflow-auto">
                   <p className="opacity-40 mb-1">system:</p>
-                  <pre className="opacity-60 whitespace-pre-wrap">{String(data.systemPrompt)}</pre>
+                  <pre className="opacity-60 whitespace-pre-wrap">{systemPrompt}</pre>
                 </div>
               )}
-              {Boolean(data.userPrompt) && (
+              {userPrompt && (
                 <div className="bg-black/20 p-3 rounded max-h-48 overflow-auto">
                   <p className="opacity-40 mb-1">user:</p>
-                  <pre className="opacity-60 whitespace-pre-wrap">{String(data.userPrompt)}</pre>
+                  <pre className="opacity-60 whitespace-pre-wrap">{userPrompt}</pre>
                 </div>
               )}
               {Boolean(data.llmResponse) && (

@@ -3,11 +3,10 @@ import { initializeGame } from '@/lib/game/step-runner';
 
 export async function POST() {
   try {
-    const { gameId, session } = initializeGame(3);
+    const session = initializeGame(3);
     
-    // Return game ID and info about first step
     return NextResponse.json({
-      gameId,
+      session,
       totalSteps: session.steps.length,
       nextStepDescription: 'Show game setup',
     });
@@ -19,4 +18,3 @@ export async function POST() {
     );
   }
 }
-

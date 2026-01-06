@@ -1,27 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getGame } from '@/lib/game/store';
 import { executeStep } from '@/lib/game/step-runner';
+import { GameSession } from '@/lib/game/store';
 
 export const maxDuration = 60; // 60 seconds max for LLM call
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { gameId } = body;
-    
-    if (!gameId) {
-      return NextResponse.json(
-        { error: 'gameId is required' },
-        { status: 400 }
-      );
-    }
-    
-    const session = getGame(gameId);
+    const { session } = body as { session: GameSession };
     
     if (!session) {
       return NextResponse.json(
-        { error: 'Game not found' },
-        { status: 404 }
+        { error: 'session is required' },
+        { status: 400 }
       );
     }
     
@@ -32,14 +23,15 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    const result = await executeStep(gameId, session);
+    const result = await executeStep(session);
     
     return NextResponse.json({
+      session: result.session,
       event: result.event,
       completed: result.completed,
       nextStepDescription: result.nextStepDescription,
-      currentStep: session.stepIndex,
-      totalSteps: session.steps.length,
+      currentStep: result.session.stepIndex,
+      totalSteps: result.session.steps.length,
     });
   } catch (error) {
     console.error('Failed to execute step:', error);
@@ -49,4 +41,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-

@@ -23,19 +23,16 @@ import {
   buildDayDiscussionPrompt,
   buildVotingPrompt,
 } from '../llm/prompts';
-import { GameSession, StepType, setGame, advanceStep, updateGameState } from './store';
+import { GameSession, StepType } from './store';
 
 export interface StepResult {
+  session: GameSession;
   event: {
     type: string;
     data: Record<string, unknown>;
   };
   completed: boolean;
   nextStepDescription: string | null;
-}
-
-function generateId(): string {
-  return Math.random().toString(36).substring(2, 9);
 }
 
 // Build the full list of steps for a game
@@ -80,22 +77,17 @@ function buildSteps(state: GameState): StepType[] {
   return steps;
 }
 
-// Create a new game and return the game ID
-export function initializeGame(maxRounds: number = 3): { gameId: string; session: GameSession } {
+// Create a new game session
+export function initializeGame(maxRounds: number = 3): GameSession {
   const state = createGame(maxRounds);
-  const gameId = generateId();
   const steps = buildSteps(state);
   
-  const session: GameSession = {
+  return {
     state,
     stepIndex: 0,
     steps,
     completed: false,
   };
-  
-  setGame(gameId, session);
-  
-  return { gameId, session };
 }
 
 // Get description of what the next step will do
@@ -130,8 +122,8 @@ function getStepDescription(step: StepType, state: GameState): string {
   }
 }
 
-// Execute a single step and return the result
-export async function executeStep(gameId: string, session: GameSession): Promise<StepResult> {
+// Execute a single step and return the result with updated session
+export async function executeStep(session: GameSession): Promise<StepResult> {
   const step = session.steps[session.stepIndex];
   let state = session.state;
   
@@ -154,7 +146,6 @@ export async function executeStep(gameId: string, session: GameSession): Promise
     
     case 'night_start': {
       state = setPhase(state, 'night');
-      updateGameState(gameId, state);
       event = {
         type: 'phase_change',
         data: { phase: 'night' },
@@ -168,7 +159,6 @@ export async function executeStep(gameId: string, session: GameSession): Promise
       
       if (result) {
         state = result.state;
-        updateGameState(gameId, state);
         event = {
           type: 'night_action',
           data: {
@@ -197,7 +187,6 @@ export async function executeStep(gameId: string, session: GameSession): Promise
     
     case 'day_start': {
       state = setPhase(state, 'day');
-      updateGameState(gameId, state);
       event = {
         type: 'phase_change',
         data: { phase: 'day' },
@@ -207,7 +196,6 @@ export async function executeStep(gameId: string, session: GameSession): Promise
     
     case 'day_round_start': {
       state = advanceRound(state);
-      updateGameState(gameId, state);
       event = {
         type: 'phase_change',
         data: { phase: 'day', round: step.round },
@@ -222,7 +210,6 @@ export async function executeStep(gameId: string, session: GameSession): Promise
       
       const response = await queryLLM(systemPrompt, userPrompt);
       state = addDayMessage(state, player.id, response.content);
-      updateGameState(gameId, state);
       
       event = {
         type: 'day_message',
@@ -241,7 +228,6 @@ export async function executeStep(gameId: string, session: GameSession): Promise
     
     case 'voting_start': {
       state = setPhase(state, 'voting');
-      updateGameState(gameId, state);
       event = {
         type: 'phase_change',
         data: { phase: 'voting' },
@@ -263,7 +249,6 @@ export async function executeStep(gameId: string, session: GameSession): Promise
       const target = getPlayerByName(state, response.vote);
       if (target && target.id !== player.id) {
         state = addVote(state, player.id, target.id);
-        updateGameState(gameId, state);
       }
       
       event = {
@@ -283,7 +268,6 @@ export async function executeStep(gameId: string, session: GameSession): Promise
     case 'resolution': {
       state = resolveVotes(state);
       state = determineWinners(state);
-      updateGameState(gameId, state);
       
       const eliminatedPlayer = state.eliminatedPlayerId
         ? getPlayerById(state, state.eliminatedPlayerId)
@@ -320,17 +304,23 @@ export async function executeStep(gameId: string, session: GameSession): Promise
     }
   }
   
-  // Advance to next step
-  advanceStep(gameId);
-  
-  // Get next step description
+  // Calculate next step info
   const nextStepIndex = session.stepIndex + 1;
   const completed = nextStepIndex >= session.steps.length;
   const nextStepDescription = completed
     ? null
     : getStepDescription(session.steps[nextStepIndex], state);
   
+  // Return updated session
+  const updatedSession: GameSession = {
+    state,
+    stepIndex: nextStepIndex,
+    steps: session.steps,
+    completed,
+  };
+  
   return {
+    session: updatedSession,
     event,
     completed,
     nextStepDescription,
